@@ -371,3 +371,32 @@ def test_unhandled_errors_do_not_leak_internals(platform):
     with TestClient(app, raise_server_exceptions=False) as c:
         r = c.get(f"{V}/jobs", headers=ADMIN)
     assert r.status_code == 500 and "shadow" not in r.text and r.json()["error"]["code"] == "internal_error"
+
+
+def test_intake_bare_yes_no_binds_to_the_question_that_was_asked(api):
+    upload(api, "Hello.", "leaflet.txt", headers=CLIENT)
+
+    def run(answer):
+        sid = api.post(f"{V}/intake/sessions", headers=CLIENT).json()["id"]
+        for m in ("translate leaflet.txt to German", "Patients, not for regulatory submission", answer):
+            v = api.post(f"{V}/intake/sessions/{sid}/messages", json={"message": m}, headers=CLIENT).json()
+        return v
+
+    yes, no = run("yes"), run("no")
+    assert yes["slots"]["back_translation"] is True and yes["status"] == "confirm" and yes["spec"]["back_translation"] is True
+    assert no["slots"]["back_translation"] is False and no["status"] == "confirm"
+
+
+def test_requeue_dead_endpoint_is_admin_only(api):
+    assert api.post(f"{V}/admin/events/requeue-dead", headers=LINGUIST).status_code == 403
+    assert api.post(f"{V}/admin/events/requeue-dead", headers=ADMIN).json() == {"requeued": 0}
+
+
+def test_rate_limit_cannot_be_bypassed_by_rotating_bogus_keys(platform):
+    from tap.config import Settings
+
+    platform.start()
+    app = create_app(platform, Settings(**{**platform.settings.model_dump(), "api_rate_limit_per_min": 3}))
+    with TestClient(app) as c:
+        codes = [c.get(f"{V}/jobs", headers={"X-API-Key": f"guess-{i}"}).status_code for i in range(50)]
+    assert 401 in codes and 429 in codes  # per-address bucket (10x) trips even though every key is "new"

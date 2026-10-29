@@ -135,6 +135,15 @@ class EventBus:
         )
         return [dict(r) for r in rows]
 
+    def requeue_dead(self) -> int:
+        """Give parked deliveries another chance (after fixing the consumer). Returns the number of events requeued."""
+        with self.db.tx():
+            ids = [r["event_id"] for r in self.db.query("SELECT DISTINCT event_id FROM deliveries WHERE status='dead'")]
+            self.db.execute("UPDATE deliveries SET status='retry', attempts=0 WHERE status='dead'")
+            for event_id in ids:
+                self.db.execute("UPDATE outbox SET status='pending' WHERE id=?", (event_id,))
+        return len(ids)
+
     def pending_count(self) -> int:
         return int(self.db.scalar("SELECT COUNT(*) FROM outbox WHERE status='pending'") or 0)
 

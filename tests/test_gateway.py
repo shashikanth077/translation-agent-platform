@@ -192,3 +192,11 @@ def test_describe_lists_only_visible_tools(gw):
     assert {t["name"] for t in gw.describe(Caller.agent("evaluator", "acme"))} == {"score_quality"}
     assert "publish_translation" in {t["name"] for t in gw.describe()}
     assert not any(t["name"].startswith("delete") for t in gw.describe())
+
+
+def test_stale_approvals_expire(gw):
+    first = gw.call(linguist, "publish_translation", {"job_id": "J1"})
+    gw.approvals.decide("acme", first.approval_id, approve=True, decided_by="user:boss")
+    gw.approvals.ttl = __import__("datetime").timedelta(seconds=-1)  # everything decided so far is now older than the TTL
+    assert gw.call(linguist, "publish_translation", {"job_id": "J1"}).status == "pending_approval"
+    gw.approvals.ttl = __import__("datetime").timedelta(hours=24)

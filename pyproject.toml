@@ -31,7 +31,7 @@ mcp = ["mcp>=1.2"]
 langsmith = ["langsmith>=0.2"]
 # Heavy model-based evaluators (COMET-Kiwi, LaBSE). Needs a GPU for production throughput.
 ml = ["unbabel-comet>=2.2", "sentence-transformers>=3.0"]
-dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "mypy>=1.10", "types-jsonschema"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "mypy>=1.10", "types-jsonschema", "fakeredis>=2.20"]
 all = ["translation-agent-platform[anthropic,redis,mcp,langsmith]"]
 
 [project.scripts]

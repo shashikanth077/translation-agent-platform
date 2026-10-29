@@ -199,8 +199,8 @@ class MCPGateway:
         if spec.requires_approval:
             if dry_run:
                 has = self.approvals.db.one(
-                    "SELECT id FROM approvals WHERE tenant_id=? AND tool=? AND status='approved' AND args_hash=?",
-                    (caller.tenant_id, tool, args_hash(tool, args)),
+                    "SELECT id FROM approvals WHERE tenant_id=? AND tool=? AND status='approved' AND args_hash=? AND decided_at>=?",
+                    (caller.tenant_id, tool, args_hash(tool, args), self.approvals.cutoff()),
                 )
                 if has is None:
                     return fail("approval", "approval required", "pending_approval")

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from ..db import Database
 from ..errors import ConflictError, Forbidden, NotFoundError
-from ..util import canonical_json, new_id, now_iso, sha256_hex
+from ..util import canonical_json, new_id, now_iso, sha256_hex, utcnow
 
 SCHEMA = [
     """
@@ -33,8 +34,9 @@ def args_hash(tool: str, args: dict[str, Any]) -> str:
 
 
 class Approvals:
-    def __init__(self, db: Database) -> None:
+    def __init__(self, db: Database, ttl_hours: float = 24.0) -> None:
         self.db = db
+        self.ttl = timedelta(hours=ttl_hours)
         db.migrate("approvals", SCHEMA)
 
     def request(self, tenant_id: str, tool: str, args: dict[str, Any], requested_by: str) -> str:
@@ -76,13 +78,18 @@ class Approvals:
         )
         return dict(self.db.one("SELECT * FROM approvals WHERE id=?", (approval_id,)))  # type: ignore[arg-type]
 
+    def cutoff(self) -> str:
+        """Approvals decided before this instant have expired: a stale 'yes' must not authorise a later action."""
+        return (utcnow() - self.ttl).isoformat(timespec="milliseconds")
+
     def consume(self, tenant_id: str, tool: str, args: dict[str, Any]) -> str | None:
         """Atomically spend one matching approval. Returns its id, or None if there is none."""
         h = args_hash(tool, args)
         with self.db.tx():
             row = self.db.one(
-                "SELECT id FROM approvals WHERE tenant_id=? AND tool=? AND args_hash=? AND status='approved' ORDER BY created_at LIMIT 1",
-                (tenant_id, tool, h),
+                "SELECT id FROM approvals WHERE tenant_id=? AND tool=? AND args_hash=? AND status='approved' AND decided_at>=? "
+                "ORDER BY created_at LIMIT 1",
+                (tenant_id, tool, h, self.cutoff()),
             )
             if row is None:
                 return None

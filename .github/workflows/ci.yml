@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -e ".[anthropic,redis,mcp,dev]"
+      - name: Lint
+        run: ruff check src tests && ruff format --check src tests
+      - name: Type check
+        run: mypy
+      - name: Tests
+        run: pytest --cov=tap --cov-report=term-missing:skip-covered --cov-fail-under=85
+      - name: Golden-set evaluation gate
+        # Fails the build if a prompt/model/threshold change regresses numbers, quality or human-review rate.
+        run: tap eval --baseline data/golden/baseline.json --fail-on-regression
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t translation-agent-platform:ci .
+      - name: Smoke test the container
+        run: |
+          docker run -d --name tap -p 8000:8000 translation-agent-platform:ci
+          for i in $(seq 1 30); do curl -fsS localhost:8000/healthz && break || sleep 1; done
+          curl -fsS localhost:8000/readyz
+          docker logs tap | tail -n 20

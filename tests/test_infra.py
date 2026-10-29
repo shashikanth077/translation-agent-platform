@@ -111,3 +111,24 @@ def test_audit_search_is_filtered():
     audit.append("u", "a", tenant_id="acme", subject="x")
     audit.append("u", "b", tenant_id="beta", subject="x")
     assert [r["action"] for r in audit.search(tenant_id="acme")] == ["a"]
+
+
+def test_dead_letters_can_be_requeued_after_the_consumer_is_fixed():
+    db, ok = Database(), []
+    bus = EventBus(db, max_attempts=2)
+    broken = {"on": True}
+
+    def flaky(e):  # noqa: ANN001
+        if broken["on"]:
+            raise RuntimeError("down")
+        ok.append(e.id)
+
+    bus.subscribe("c", "x", flaky)
+    bus.publish("x", {})
+    for _ in range(4):
+        bus.flush()
+    assert bus.dead_letters() and not ok
+    broken["on"] = False
+    assert bus.requeue_dead() == 1
+    bus.flush()
+    assert len(ok) == 1 and not bus.dead_letters()

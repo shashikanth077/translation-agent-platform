@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" datatype="plaintext" original="app">
+    <body>
+      <trans-unit id="1"><source>Click <g id="1">Save</g> to continue.</source></trans-unit>
+      <trans-unit id="2"><source>Keep out of the sight and reach of children.</source></trans-unit>
+    </body>
+  </file>
+</xliff>

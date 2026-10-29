@@ -1,0 +1,20 @@
+[
+  {
+    "src_lang": "en",
+    "tgt_lang": "de",
+    "term": "IMP",
+    "translation": "Prüfpräparat"
+  },
+  {
+    "src_lang": "en",
+    "tgt_lang": "de",
+    "term": "adverse event",
+    "translation": "unerwünschtes Ereignis"
+  },
+  {
+    "src_lang": "en",
+    "tgt_lang": "de",
+    "term": "dose-escalation",
+    "translation": "Dosiseskalation"
+  }
+]

@@ -61,7 +61,7 @@ class TMEntryIn(BaseModel):
 
 
 class TMXImport(BaseModel):
-    content: str
+    content: str = Field(min_length=1, max_length=10_000_000)
     domain: str = "imported"
 
 
@@ -75,7 +75,7 @@ class TermIn(BaseModel):
 
 
 class GlossaryCommit(BaseModel):
-    changes: list[TermIn] = Field(min_length=1)
+    changes: list[TermIn] = Field(min_length=1, max_length=1000)
     note: str = ""
 
 

@@ -310,8 +310,11 @@ class IntakeService:
                 st.slots[pending["slot"]] = pending["value"]
                 text = _YES.sub("", text, count=1)  # keep extracting from the rest ("Yes, v4.2. Only the changes...")
             elif _NO.match(text):
-                st.declined.append(pending["slot"])
-                text = re.sub(_NO, "", text, count=1)
+                if "on_no" in pending:  # a yes/no question: "no" is an answer, not a refusal to answer
+                    st.slots[pending["slot"]] = pending["on_no"]  # keep the text: "No back-translation" must not lose its "no"
+                else:
+                    st.declined.append(pending["slot"])
+                    text = re.sub(_NO, "", text, count=1)
         elif st.status == "confirm":
             if _YES.match(text) and len(_YES.sub("", text, count=1).split()) <= 2:
                 spec, errors = self._try_spec(principal.tenant_id, st)
@@ -376,9 +379,10 @@ class IntakeService:
             and "back_translation" not in st.declined
         ):
             st.declined.append("back_translation")  # ask once
+            st.pending = {"slot": "back_translation", "value": True, "on_no": False}  # bare yes/no answers this question
             return (
-                f"Then I will apply the {policy.name.value} policy. Do you require back-translation? "
-                "Any glossary besides your client glossary?"
+                f"Then I will apply the {policy.name.value} policy. Do you require back-translation (yes or no)? "
+                "I will use your client glossary unless you name another."
             )
         st.status = "confirm"
         langs = " and ".join(LANG_NAMES.get(c.split("-")[0], c) for c in spec.target_langs)

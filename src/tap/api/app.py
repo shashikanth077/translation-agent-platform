@@ -53,7 +53,9 @@ def create_app(platform: Platform | None = None, settings: Settings | None = Non
     )
     if platform is not None:  # tests construct the platform themselves; available before lifespan too
         app.state.platform = platform
-    limiter = RateLimiter((settings or (platform.settings if platform else Settings())).api_rate_limit_per_min)
+    per_min = (settings or (platform.settings if platform else Settings())).api_rate_limit_per_min
+    limiter = RateLimiter(per_min)  # per API key
+    ip_limiter = RateLimiter(per_min * 10)  # per client address: stops key-guessing with a fresh key per request
     cors = (settings or (platform.settings if platform else Settings())).cors_origins
     if cors:
         app.add_middleware(CORSMiddleware, allow_origins=cors, allow_methods=["*"], allow_headers=["*"])
@@ -63,8 +65,9 @@ def create_app(platform: Platform | None = None, settings: Settings | None = Non
         rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
         token = bind(request_id=rid)
         started = time.monotonic()
-        key = request.headers.get("X-API-Key") or (request.client.host if request.client else "anon")
-        if request.url.path.startswith(API) and not limiter.allow(key):
+        client = request.client.host if request.client else "anon"
+        key = request.headers.get("X-API-Key") or client
+        if request.url.path.startswith(API) and not (limiter.allow(key) and ip_limiter.allow(client)):
             unbind(token)
             return JSONResponse(
                 {"error": {"code": "rate_limited", "message": "too many requests"}}, status_code=429, headers={"Retry-After": "1"}

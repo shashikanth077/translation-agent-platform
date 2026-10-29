@@ -307,6 +307,13 @@ def audit_search(
     return p.audit.search(tenant_id=principal.tenant_id, subject=subject, action=action, limit=limit)
 
 
+@router.post("/admin/events/requeue-dead", tags=["ops"])
+def requeue_dead(principal: Principal = Depends(require("admin")), p: Platform = Depends(get_platform)) -> dict[str, int]:
+    n = p.bus.requeue_dead()
+    p.audit.append(principal.subject, "events.requeue_dead", tenant_id=principal.tenant_id, details={"events": n})
+    return {"requeued": n}
+
+
 @router.get("/audit/verify", tags=["audit"])
 def audit_verify(_: Principal = Depends(require("audit:read")), p: Platform = Depends(get_platform)) -> dict[str, Any]:
     return p.audit.verify()

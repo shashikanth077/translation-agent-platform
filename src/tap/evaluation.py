@@ -14,6 +14,7 @@ from typing import Any
 
 from rapidfuzz import fuzz
 
+from .assets.terminology import TermChange
 from .domain.models import Domain
 from .parse.tokens import numbers_and_units
 from .platform import Platform
@@ -53,8 +54,22 @@ def load_dataset(path: str | Path) -> list[Example]:
     return out
 
 
-def run_eval(platform: Platform, examples: list[Example], *, prefix: str = "run") -> EvalReport:
+def load_glossary(path: str | Path) -> list[dict[str, str]]:
+    return list(json.loads(Path(path).read_text(encoding="utf-8")))
+
+
+def run_eval(
+    platform: Platform, examples: list[Example], *, prefix: str = "run", glossary: list[dict[str, str]] | None = None
+) -> EvalReport:
     run_id = new_id("eval_")
+    if glossary:  # required terms are part of what is being evaluated
+        platform.terminology.commit(
+            EVAL_TENANT,
+            [TermChange("add", g["src_lang"], g["tgt_lang"], g["term"], g["translation"], g.get("kind", "preferred")) for g in glossary],  # type: ignore[arg-type]
+            note=f"eval {run_id}",
+            actor="eval",
+        )
+    glossary_version = f"v{platform.terminology.latest_version(EVAL_TENANT)}"
     rows: list[dict[str, Any]] = []
     for ex in examples:
         job_id = f"{run_id}-{ex.id}"
@@ -67,7 +82,7 @@ def run_eval(platform: Platform, examples: list[Example], *, prefix: str = "run"
                 "src_lang": ex.src_lang,
                 "tgt_lang": ex.tgt_lang,
                 "domain": ex.domain,
-                "glossary_version": "v0",
+                "glossary_version": glossary_version,
                 "policy": ex.policy,
                 "risk": classify_risk(ex.source, Domain(ex.domain)).value,
                 "words": max(1, len(ex.source.split())),

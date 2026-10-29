@@ -100,22 +100,54 @@ def _demo(_: argparse.Namespace) -> int:
         print(f"job -> {job['status']}; delivered files: {[d['location'] for d in platform.delivery.delivered(job['id'])]}\n")
         print(platform.runner.result(linguist, job["id"], "de"))
         platform.bus.flush()
-        rep = platform.metering.report("acme")
+        rep = platform.metering.report("acme", job_id=job["id"])
         print(
-            f"cost {rep['cost_units']} vs legacy baseline {rep['baseline_cost_units']} -> savings {rep['savings_pct']}% "
-            f"(reuse share {rep['reuse_word_share_pct']}%; defaults are illustrative, see assumptions in the report)"
+            f"\njob 1 (high-risk leaflet): cost {rep['cost_units']} vs baseline {rep['baseline_cost_units']}"
+            f" -> savings {rep['savings_pct']}%"
         )
+        print("  small and safety-critical: three of five segments need human sign-off, so reuse cannot save much here.\n")
+
+        # job 2: UI strings, the profile where reuse and cheap routing pay off
+        ui = json.dumps(
+            {
+                "save": "Click Save to continue.",
+                "confirm": "Click Save to continue.",
+                "retry": "Click Save to continue.",
+                "title": "Visit schedule",
+                "help": "Contact your study doctor if you have any questions.",
+                "hint": "Keep out of the sight and reach of children.",
+            }
+        )
+        doc2 = platform.jobs.create_document("acme", "strings.json", DocFormat.JSON, ui)
+        spec2 = JobSpec(tenant_id="acme", document_id=doc2, source_lang="en", target_langs=["de"], domain=Domain.UI)
+        job2 = platform.runner.submit(admin, spec2, idem_key="demo-job-2")
+        platform.runner.wait_idle(60)
+        job2 = platform.jobs.get(job2["id"])
+        print(f"job 2 (UI strings, policy {job2['policy']}) -> {job2['status']}")
+        for s in platform.jobs.segments(job2["id"]):
+            print("  " + _row(s["seg_id"], s["path"], f"{s['cost_units']:.3f}", s["source"], widths=(4, 14, 7, 60)))
+        platform.bus.flush()
+        rep2 = platform.metering.report("acme", job_id=job2["id"])
+        print(
+            f"  cost {rep2['cost_units']} vs baseline {rep2['baseline_cost_units']} -> savings {rep2['savings_pct']}%"
+            f" (reuse share {rep2['reuse_word_share_pct']}%)"
+        )
+        rep = platform.metering.report("acme")
+        print(f"\nboth jobs: cost {rep['cost_units']} vs baseline {rep['baseline_cost_units']} -> savings {rep['savings_pct']}%")
+        print("(prices and baseline are illustrative defaults; see `assumptions` in the metering report)")
         print("audit chain:", platform.audit.verify())
         platform.stop()
     return 0
 
 
 def _eval(args: argparse.Namespace) -> int:
-    from .evaluation import compare, load_dataset, run_eval
+    from .evaluation import compare, load_dataset, load_glossary, run_eval
 
     with tempfile.TemporaryDirectory() as tmp:
         platform = Platform.create(Settings(data_dir=Path(tmp), engine_retry_initial_s=0))
-        report = run_eval(platform, load_dataset(args.dataset), prefix=args.prefix)
+        report = run_eval(
+            platform, load_dataset(args.dataset), prefix=args.prefix, glossary=load_glossary(args.glossary) if args.glossary else None
+        )
         platform.stop()
     print(json.dumps(report.metrics, indent=2))
     if args.write_baseline:
@@ -153,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     sd.set_defaults(fn=_seed)
     e = sub.add_parser("eval", help="evaluate the workflow on a golden set (CI gate)")
     e.add_argument("--dataset", default="data/golden/de-clinical-golden.jsonl")
+    e.add_argument("--glossary", default="data/golden/glossary.json", help="required terms applied to the evaluation tenant")
     e.add_argument("--prefix", default="run")
     e.add_argument("--baseline")
     e.add_argument("--write-baseline")

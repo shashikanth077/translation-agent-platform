@@ -113,3 +113,18 @@ def test_semantic_suggestions_are_context_only(stack):
     tm.add("acme", "en", "de", "clinical", "Participants must report any serious adverse event within 48 hours.", "x")
     h = reuse.lookup("Participants should tell staff about adverse events quickly.", ReuseContext("acme", "en", "de", "clinical", "v1"))
     assert h.type in ("semantic", "none") and h.target is None
+
+
+def test_redis_cache_adapter_roundtrip_ttl_and_ping(monkeypatch):
+    import fakeredis
+
+    from tap.assets.cache import RedisCache
+
+    server = fakeredis.FakeServer()
+    monkeypatch.setattr("redis.Redis.from_url", lambda url, **kw: fakeredis.FakeRedis(server=server, **kw))
+    cache = RedisCache("redis://fake:6379/0", prefix="t:")
+    cache.set("k", "v", ttl_s=60)
+    assert cache.get("k") == "v" and cache.get("missing") is None and cache.ping()
+    assert 0 < fakeredis.FakeRedis(server=server).ttl("t:k") <= 60  # keys are prefixed and expire
+    cache.delete("k")
+    assert cache.get("k") is None

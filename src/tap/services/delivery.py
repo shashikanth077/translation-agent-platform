@@ -39,6 +39,8 @@ class FilesystemConnector:
 
     def deliver(self, tenant_id: str, job_id: str, lang: str, filename: str, content: str) -> str:
         parts = [_SAFE.sub("_", p) for p in (tenant_id, job_id, lang, Path(filename).name)]
+        if any(p in ("", ".", "..") for p in parts):
+            raise ValidationFailed(f"unsafe delivery path component in {parts!r}")
         dest = self.root.joinpath(*parts)
         dest.parent.mkdir(parents=True, exist_ok=True)
         tmp = dest.with_suffix(dest.suffix + ".tmp")
