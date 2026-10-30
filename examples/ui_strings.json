@@ -1,0 +1,6 @@
+{
+  "save": "Click Save to continue.",
+  "confirm": "Click Save to continue.",
+  "schedule": { "title": "Visit schedule", "help": "Contact your study doctor if you have any questions." },
+  "greeting": "Hello {name}, your next visit is on {date}."
+}

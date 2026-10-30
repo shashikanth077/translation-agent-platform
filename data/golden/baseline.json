@@ -1,0 +1,68 @@
+{
+  "prefix": "run",
+  "n": 7,
+  "metrics": {
+    "numbers_ok_rate": 1.0,
+    "mean_composite": 0.9205714285714286,
+    "human_rate": 0.14285714285714285,
+    "mean_reference_similarity": 0.9892650701899256
+  },
+  "per_example": [
+    {
+      "id": "dose-simple",
+      "decision": "accept",
+      "path": "nmt",
+      "composite": 0.934,
+      "numbers_ok": true,
+      "reference_similarity": 1.0
+    },
+    {
+      "id": "allergy-omission",
+      "decision": "accept",
+      "path": "nmt+repair",
+      "composite": 0.928,
+      "numbers_ok": true,
+      "reference_similarity": 1.0
+    },
+    {
+      "id": "ui-save",
+      "decision": "accept",
+      "path": "nmt",
+      "composite": 0.964,
+      "numbers_ok": true,
+      "reference_similarity": 1.0
+    },
+    {
+      "id": "sae-24h",
+      "decision": "accept",
+      "path": "nmt",
+      "composite": 0.9440000000000001,
+      "numbers_ok": true,
+      "reference_similarity": 1.0
+    },
+    {
+      "id": "imp-titration",
+      "decision": "human",
+      "path": "human",
+      "composite": 0.796,
+      "numbers_ok": true,
+      "reference_similarity": 0.9248554913294798
+    },
+    {
+      "id": "fr-dose",
+      "decision": "accept",
+      "path": "nmt",
+      "composite": 0.924,
+      "numbers_ok": true,
+      "reference_similarity": 1.0
+    },
+    {
+      "id": "fr-ui-save",
+      "decision": "accept",
+      "path": "nmt",
+      "composite": 0.954,
+      "numbers_ok": true,
+      "reference_similarity": 1.0
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# Local stack: the platform + Redis (shared exact cache) + LibreTranslate (self-hosted NMT).
+#
+#   docker compose up --build                       # offline demo backends, no keys needed
+#   docker compose --profile real up --build        # real NMT (LibreTranslate); add ANTHROPIC key in .env for the LLM path
+#
+# Open http://localhost:8000/console (dev keys: dev-admin, dev-client, dev-linguist).
+services:
+  api:
+    build: .
+    ports: ["8000:8000"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TAP_CACHE_BACKEND: redis
+      TAP_REDIS_URL: redis://redis:6379/0
+      TAP_DATA_DIR: /data
+    volumes: ["tap-data:/data"]
+    depends_on:
+      redis: { condition: service_healthy }
+    command: ["tap", "serve", "--host", "0.0.0.0", "--port", "8000", "--seed-demo"]
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
+
+  libretranslate:
+    profiles: ["real"]
+    image: libretranslate/libretranslate:latest
+    environment:
+      LT_LOAD_ONLY: "en,de,fr,es,it,pt,nl"
+    ports: ["5000:5000"]
+    volumes: ["lt-models:/home/libretranslate/.local"]
+
+volumes:
+  tap-data:
+  lt-models:
